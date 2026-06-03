@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isUnder5MB() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // ─── User Avatars ───────────────────────────────────────
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isImageType() && isUnder5MB();
+    }
+
+    // ─── Trip Images ────────────────────────────────────────
+    match /trips/{tripId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImageType() && isUnder5MB();
+    }
+
+    // ─── Destination Images (public read) ───────────────────
+    match /destinations/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Admin via Cloud Functions only
+    }
+  }
+}

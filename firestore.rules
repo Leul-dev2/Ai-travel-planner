@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ───────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isCollaborator(tripData) {
+      return tripData.collaborators is list
+        && request.auth.uid in tripData.collaborators;
+    }
+
+    // ─── Users ──────────────────────────────────────────────
+    match /users/{userId} {
+      // Users can read/write their own profile
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isAdmin();
+
+      // Subcollections
+      match /saved_destinations/{destId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /travel_history/{histId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ─── Trips ──────────────────────────────────────────────
+    match /trips/{tripId} {
+      // Owner and collaborators can read
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isCollaborator(resource.data) ||
+        isAdmin()
+      );
+
+      // Any authenticated user can create a trip
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid;
+
+      // Only owner can update/delete
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isCollaborator(resource.data)
+      );
+      allow delete: if isAuthenticated() &&
+        resource.data.ownerId == request.auth.uid;
+
+      // Trip subcollections
+      match /itinerary/{dayId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/trips/$(tripId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.collaborators
+        );
+        allow write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/trips/$(tripId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.collaborators
+        );
+      }
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() &&
+          resource.data.userId == request.auth.uid;
+      }
+
+      match /votes/{voteId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() &&
+          resource.data.userId == request.auth.uid;
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/trips/$(tripId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.collaborators
+        );
+        allow write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/trips/$(tripId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.collaborators
+        );
+      }
+    }
+
+    // ─── Bookings ───────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // ─── Payments ───────────────────────────────────────────
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      // Payments are created by Cloud Functions only
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // ─── Chat Sessions ──────────────────────────────────────
+    match /chat_sessions/{sessionId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+
+      match /messages/{msgId} {
+        allow read: if isAuthenticated() &&
+          get(/databases/$(database)/documents/chat_sessions/$(sessionId)).data.userId == request.auth.uid;
+        allow create: if isAuthenticated() &&
+          get(/databases/$(database)/documents/chat_sessions/$(sessionId)).data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── Featured Destinations (public read) ────────────────
+    match /featured_destinations/{destId} {
+      allow read: if true; // Public
+      allow write: if isAdmin();
+    }
+
+    // ─── Analytics (admin only) ─────────────────────────────
+    match /analytics/{docId} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ─── App Config (admin write, authenticated read) ───────
+    match /app_config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

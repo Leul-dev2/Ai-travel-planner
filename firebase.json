@@ -1,0 +1,26 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ai-planner-39b1a",
+          "appId": "1:911325931379:android:0a3aa57c5d0f76b8ad8706",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ai-planner-39b1a",
+          "configurations": {
+            "android": "1:911325931379:android:0a3aa57c5d0f76b8ad8706",
+            "web": "1:911325931379:web:61c9505132b9dc99ad8706"
+          }
+        }
+      }
+    }
+  }
+}

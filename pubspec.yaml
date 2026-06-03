@@ -1,0 +1,129 @@
+name: ai_travel_planner
+description: AI-powered travel itinerary planner — Smart Travel AI
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # ── State Management (Riverpod) ──
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # ── Routing ──
+  go_router: ^14.8.1
+
+  # ── Code Generation Annotations ──
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # ── Firebase Suite ──
+  firebase_core: ^3.4.0
+  firebase_auth: ^5.2.0
+  cloud_firestore: ^5.4.0
+  firebase_storage: ^12.2.0
+  cloud_functions: ^5.1.0
+  firebase_messaging: ^15.1.0
+  firebase_analytics: ^11.3.0
+  firebase_crashlytics: ^4.1.0
+  firebase_remote_config: ^5.1.0
+
+  # ── Google Auth ──
+  google_sign_in: ^6.3.0
+  sign_in_with_apple: ^6.1.4
+
+  # ── Google Maps ──
+  google_maps_flutter: ^2.14.2
+  geolocator: ^12.0.0
+  geocoding: ^3.0.0
+
+  # ── AI SDKs ──
+  dart_openai: ^5.1.0
+  google_generative_ai: ^0.4.3
+
+  # ── Local Database (Offline) ──
+  hive_flutter: ^1.1.0
+  hive: ^2.2.3
+
+  # ── Payments ──
+  # flutter_stripe: ^10.1.0  # Enable when Stripe keys are ready
+  # chapa_unofficial: ^1.0.0 # Enable when Chapa keys are ready
+
+  # ── HTTP & Networking ──
+  http: ^1.6.0
+  dio: ^5.5.0
+  connectivity_plus: ^6.1.5
+
+  # ── Secure Storage ──
+  flutter_secure_storage: ^9.2.4
+
+  # ── Date & Time ──
+  calendar_date_picker2: ^1.1.9
+  intl: ^0.20.2
+
+  # ── Animations ──
+  flutter_animate: ^4.5.0
+
+  # ── PDF & Export ──
+  pdf: ^3.11.0
+  printing: ^5.13.1
+  screenshot: ^3.0.0
+
+  # ── Sharing & Files ──
+  path_provider: ^2.1.3
+  share_plus: ^9.0.0
+
+  # ── Images ──
+  cached_network_image: ^3.4.0
+  image_picker: ^1.1.2
+
+  # ── Typography & Icons ──
+  google_fonts: ^6.3.3
+  flutter_svg: ^2.0.10+1
+  cupertino_icons: ^1.0.8
+
+  # ── Notifications ──
+  flutter_local_notifications: ^17.2.4
+
+  # ── Utilities ──
+  uuid: ^4.4.0
+  logger: ^2.3.0
+  dartz: ^0.10.1
+  equatable: ^2.0.5
+  url_launcher: ^6.3.0
+  permission_handler: ^11.4.0
+  flutter_dotenv: ^5.2.1
+
+  # ── Weather ──
+  # weather API via HTTP/dio — no specific SDK needed
+
+  # ── Charts (Admin Panel) ──
+  fl_chart: ^0.68.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.0
+  hive_generator: ^2.0.1
+  mockito: ^5.4.4
+  mocktail: ^1.0.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - .env

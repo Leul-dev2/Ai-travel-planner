@@ -1,0 +1,8 @@
+﻿flutter : This project is not configured for the web.
+At line:2 char:71
++ ... ter\travel_planner; flutter build web 2>&1 > build_output.txt; Get-Co ...
++                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (This project is...ed for the web.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+To configure this project for the web, run flutter create . --platforms web
