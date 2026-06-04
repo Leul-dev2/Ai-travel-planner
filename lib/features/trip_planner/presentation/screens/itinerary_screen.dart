@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -24,6 +26,8 @@ class ItineraryScreen extends StatefulWidget {
 
 class _ItineraryScreenState extends State<ItineraryScreen> {
   int _expandedDay = 0;
+  bool _isMapView = false;
+  GoogleMapController? _mapController;
 
   static const _categoryIcons = {
     'hotel': Icons.hotel_rounded,
@@ -195,6 +199,32 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                                     .copyWith(color: Colors.white70),
                               ),
                             ),
+                            const Spacer(),
+                            if (trip.itinerary.isNotEmpty && trip.itinerary.first.weather != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.network(
+                                      'https://openweathermap.org/img/wn/${trip.itinerary.first.weather!.icon}.png',
+                                      width: 24,
+                                      height: 24,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${trip.itinerary.first.weather!.temp.round()}°C',
+                                      style: AppTypography.labelMedium.copyWith(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -219,34 +249,143 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
           ),
 
-          // ── Timeline ──
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final day = trip.itinerary[index];
-                final isExpanded = _expandedDay == index;
-                return _DayCard(
-                  day: day,
-                  isExpanded: isExpanded,
-                  isLast: index == trip.itinerary.length - 1,
-                  categoryIcons: _categoryIcons,
-                  categoryColors: _categoryColors,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() =>
-                        _expandedDay = isExpanded ? -1 : index);
-                  },
-                )
-                    .animate(delay: Duration(milliseconds: 100 + index * 80))
-                    .fadeIn(duration: 400.ms)
-                    .slideY(begin: 0.06, end: 0);
-              },
-              childCount: trip.itinerary.length,
+          // ── Tabs (Timeline / Map) ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  border: Border.all(color: AppColors.glassBorder),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isMapView = false),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: !_isMapView ? AppColors.surfaceAltDark : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text('Timeline', style: AppTypography.labelMedium.copyWith(color: !_isMapView ? Colors.white : AppColors.textMutedDark)),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isMapView = true),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _isMapView ? AppColors.surfaceAltDark : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text('Map View', style: AppTypography.labelMedium.copyWith(color: _isMapView ? Colors.white : AppColors.textMutedDark)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
+          // ── Content ──
+          if (_isMapView)
+            SliverFillRemaining(
+              child: _buildMapView(trip),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final day = trip.itinerary[index];
+                  final isExpanded = _expandedDay == index;
+                  return _DayCard(
+                    day: day,
+                    isExpanded: isExpanded,
+                    isLast: index == trip.itinerary.length - 1,
+                    categoryIcons: _categoryIcons,
+                    categoryColors: _categoryColors,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() =>
+                          _expandedDay = isExpanded ? -1 : index);
+                    },
+                  )
+                      .animate(delay: Duration(milliseconds: 100 + index * 80))
+                      .fadeIn(duration: 400.ms)
+                      .slideY(begin: 0.06, end: 0);
+                },
+                childCount: trip.itinerary.length,
+              ),
+            ),
+
+          if (!_isMapView) const SliverToBoxAdapter(child: SizedBox(height: 48)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapView(TripEntity trip) {
+    Set<Marker> markers = {};
+    List<LatLng> polylinePoints = [];
+    LatLng? initialPos;
+    
+    int actIndex = 1;
+    for (var day in trip.itinerary) {
+      for (var act in day.activities) {
+        if (act.lat != null && act.lng != null) {
+          final pos = LatLng(act.lat!, act.lng!);
+          initialPos ??= pos;
+          polylinePoints.add(pos);
+          markers.add(
+            Marker(
+              markerId: MarkerId(act.name),
+              position: pos,
+              infoWindow: InfoWindow(title: '${day.dayNumber}.$actIndex ${act.name}', snippet: act.time),
+            ),
+          );
+          actIndex++;
+        }
+      }
+    }
+
+    if (initialPos == null) {
+      return const Center(child: Text('No precise map coordinates were generated by the AI for this trip.', style: TextStyle(color: Colors.white), textAlign: TextAlign.center));
+    }
+
+    Set<Polyline> polylines = {
+      if (polylinePoints.isNotEmpty)
+        Polyline(
+          polylineId: const PolylineId('itinerary_route'),
+          points: polylinePoints,
+          color: AppColors.primary,
+          width: 4,
+          patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+        ),
+    };
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXXL),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: GoogleMap(
+        initialCameraPosition: CameraPosition(target: initialPos, zoom: 12),
+        markers: markers,
+        polylines: polylines,
+        onMapCreated: (ctrl) {
+           // We don't need _mapController stored locally
+        },
+        style: '[{"elementType":"geometry","stylers":[{"color":"#212121"}]},{"elementType":"labels.icon","stylers":[{"visibility":"off"}]},{"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},{"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},{"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#9e9e9e"}]},{"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},{"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#bdbdbd"}]},{"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#181818"}]},{"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},{"featureType":"poi.park","elementType":"labels.text.stroke","stylers":[{"color":"#1b1b1b"}]},{"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},{"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},{"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#373737"}]},{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3c3c3c"}]},{"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#4e4e4e"}]},{"featureType":"road.local","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},{"featureType":"transit","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]},{"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}]',
       ),
     );
   }
@@ -497,17 +636,31 @@ class _ActivityRow extends StatelessWidget {
               ),
             ),
           ),
-          // Icon
-          Container(
-            width: 32,
-            height: 32,
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+          // Image or Icon
+          if (activity.imageUrl != null && activity.imageUrl!.isNotEmpty)
+            Container(
+              width: 48,
+              height: 48,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                image: DecorationImage(
+                  image: NetworkImage(activity.imageUrl!),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 16, color: color),
             ),
-            child: Icon(icon, size: 16, color: color),
-          ),
           // Details
           Expanded(
             child: Column(

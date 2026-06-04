@@ -31,7 +31,12 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
   late AnimationController _iconCtrl;
 
   static const _quickCities = [
-    'Tokyo', 'Paris', 'Dubai', 'Bali', 'New York', 'Barcelona',
+    'Tokyo',
+    'Paris',
+    'Dubai',
+    'Bali',
+    'New York',
+    'Barcelona',
   ];
 
   @override
@@ -176,8 +181,8 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                               ? null
                               : [
                                   BoxShadow(
-                                    color:
-                                        AppColors.primary.withValues(alpha: 0.4),
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.4),
                                     blurRadius: 14,
                                     offset: const Offset(0, 4),
                                   ),
@@ -222,8 +227,8 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                         ),
                         child: Text(
                           _quickCities[i],
-                          style: AppTypography.labelMedium.copyWith(
-                              color: AppColors.textSecondaryDark),
+                          style: AppTypography.labelMedium
+                              .copyWith(color: AppColors.textSecondaryDark),
                         ),
                       ),
                     ),
@@ -240,7 +245,7 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.errorBg,
+                      color: AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppTheme.radiusLG),
                       border: Border.all(
                           color: AppColors.error.withValues(alpha: 0.3)),
@@ -438,7 +443,8 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: AppColors.accentWarm.withValues(alpha: 0.1),
+                                color:
+                                    AppColors.accentWarm.withValues(alpha: 0.1),
                                 borderRadius:
                                     BorderRadius.circular(AppTheme.radiusMD),
                               ),
@@ -464,18 +470,16 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                                       decoration: BoxDecoration(
                                         color: AppColors.success
                                             .withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Icon(
-                                          Icons.check_rounded,
-                                          color: AppColors.success,
-                                          size: 13),
+                                      child: const Icon(Icons.check_rounded,
+                                          color: AppColors.success, size: 13),
                                     ),
                                     const SizedBox(width: 10),
                                     Text(e.value,
                                         style: AppTypography.bodySmall.copyWith(
-                                            color: AppColors.textSecondaryDark)),
+                                            color:
+                                                AppColors.textSecondaryDark)),
                                   ],
                                 ),
                               )
@@ -509,8 +513,8 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
                           ),
                       const SizedBox(height: 16),
                       Text('Check the Weather',
-                          style: AppTypography.titleMedium.copyWith(
-                              color: AppColors.textSecondaryDark)),
+                          style: AppTypography.titleMedium
+                              .copyWith(color: AppColors.textSecondaryDark)),
                       const SizedBox(height: 6),
                       Text('Enter a city or tap a quick shortcut above',
                           style: AppTypography.bodySmall
@@ -565,7 +569,10 @@ class _WeatherScreenState extends ConsumerState<WeatherScreen>
 
   List<String> _packingSuggestions(WeatherForecast f) {
     final temp = f.temp;
-    final suggestions = <String>['Passport & travel documents', 'Travel insurance'];
+    final suggestions = <String>[
+      'Passport & travel documents',
+      'Travel insurance'
+    ];
     if (temp > 28) {
       suggestions.addAll([
         'Sunscreen SPF 50+',
@@ -613,11 +620,10 @@ class _WeatherStat extends StatelessWidget {
         Icon(icon, color: Colors.white70, size: 18),
         const SizedBox(height: 4),
         Text(value,
-            style: AppTypography.titleSmall.copyWith(
-                color: Colors.white, fontWeight: FontWeight.w700)),
+            style: AppTypography.titleSmall
+                .copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
         Text(label,
-            style:
-                AppTypography.caption.copyWith(color: Colors.white54)),
+            style: AppTypography.caption.copyWith(color: Colors.white54)),
       ],
     );
   }

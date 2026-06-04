@@ -52,7 +52,7 @@ dependencies:
   hive: ^2.2.3
 
   # ── Payments ──
-  # flutter_stripe: ^10.1.0  # Enable when Stripe keys are ready
+  flutter_stripe: ^10.1.0
   # chapa_unofficial: ^1.0.0 # Enable when Chapa keys are ready
 
   # ── HTTP & Networking ──

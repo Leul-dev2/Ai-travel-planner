@@ -1,14 +1,13 @@
 // ─── App Shell & Bottom Navigation ──────────────────────────────────
-// ShellRoute scaffold with animated bottom nav and 5 persistent tabs.
+// Premium Apple-style fixed bottom navigation with a Floating AI Button.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../constants/route_names.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/app_typography.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -26,31 +25,31 @@ class _AppShellState extends State<AppShell> {
       label: 'Home',
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
-      path: '/home',
+      path: RouteNames.home,
     ),
     _TabItem(
       label: 'Discover',
       icon: Icons.explore_outlined,
       activeIcon: Icons.explore_rounded,
-      path: '/discover',
+      path: RouteNames.discover,
     ),
     _TabItem(
       label: 'Trips',
-      icon: Icons.flight_takeoff_outlined,
-      activeIcon: Icons.flight_takeoff_rounded,
-      path: '/dashboard',
+      icon: Icons.map_outlined,
+      activeIcon: Icons.map_rounded,
+      path: RouteNames.dashboard,
     ),
     _TabItem(
-      label: 'Wander AI',
-      icon: Icons.auto_awesome_outlined,
-      activeIcon: Icons.auto_awesome_rounded,
-      path: '/ai-chat',
+      label: 'Planner',
+      icon: Icons.auto_awesome_mosaic_outlined,
+      activeIcon: Icons.auto_awesome_mosaic_rounded,
+      path: RouteNames.planTrip,
     ),
     _TabItem(
       label: 'Profile',
       icon: Icons.person_outline_rounded,
       activeIcon: Icons.person_rounded,
-      path: '/profile',
+      path: RouteNames.profile,
     ),
   ];
 
@@ -72,166 +71,59 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final activeIndex = _indexFromLocation(location);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Hide FAB if keyboard is open
+    final bool hideFab = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       body: widget.child,
-      bottomNavigationBar: _AppBottomNav(
-        tabs: _tabs,
-        currentIndex: activeIndex,
-        onTap: _onTabTap,
-      ),
-    );
-  }
-}
-
-class _AppBottomNav extends StatelessWidget {
-  final List<_TabItem> tabs;
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  const _AppBottomNav({
-    required this.tabs,
-    required this.currentIndex,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.borderDark.withValues(alpha: 0.6),
-            width: 0.5,
+      floatingActionButton: hideFab
+          ? null
+          : FloatingActionButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                context.push(RouteNames.aiChat);
+              },
+              backgroundColor: AppColors.primary,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+              ),
+              child: const Icon(Icons.auto_awesome, color: Colors.white),
+            ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceAltDark : AppColors.surfaceLight,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.borderDark : AppColors.borderSubtleLight,
+              width: 1,
+            ),
           ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: tabs.asMap().entries.map((entry) {
-              final index = entry.key;
-              final tab = entry.value;
-              final isActive = index == currentIndex;
-              // Center tab is the AI copilot — make it a FAB
-              if (index == 3) {
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => onTap(index),
-                    child: Center(
-                      child: AnimatedContainer(
-                        duration: AppTheme.durationMedium,
-                        curve: Curves.easeOutCubic,
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: isActive
-                              ? AppColors.auroraGradient
-                              : const LinearGradient(
-                                  colors: [
-                                    AppColors.surfaceElevatedDark,
-                                    AppColors.surfaceElevatedDark
-                                  ],
-                                ),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusLG),
-                          boxShadow: isActive
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.4),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Icon(
-                          isActive ? tab.activeIcon : tab.icon,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      )
-                          .animate(target: isActive ? 1 : 0)
-                          .scale(
-                            begin: const Offset(1, 1),
-                            end: const Offset(1.05, 1.05),
-                            duration: 200.ms,
-                          ),
-                    ),
-                  ),
-                );
-              }
-              return Expanded(
-                child: _NavItem(
-                  tab: tab,
-                  isActive: isActive,
-                  onTap: () => onTap(index),
-                ),
-              );
-            }).toList(),
-          ),
+        child: NavigationBar(
+          selectedIndex: activeIndex,
+          onDestinationSelected: _onTabTap,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          indicatorColor: Colors.transparent,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _tabs.map((tab) {
+            return NavigationDestination(
+              icon: Icon(
+                tab.icon,
+                color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+              ),
+              selectedIcon: Icon(
+                tab.activeIcon,
+                color: AppColors.primary,
+              ),
+              label: tab.label,
+            );
+          }).toList(),
         ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final _TabItem tab;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.tab,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: AppTheme.durationMedium,
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? AppColors.primary.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-            ),
-            child: Icon(
-              isActive ? tab.activeIcon : tab.icon,
-              color: isActive ? AppColors.primary : AppColors.textMutedDark,
-              size: 22,
-            ),
-          ),
-          const SizedBox(height: 2),
-          AnimatedDefaultTextStyle(
-            duration: AppTheme.durationFast,
-            style: AppTypography.labelSmall.copyWith(
-              color: isActive ? AppColors.primary : AppColors.textMutedDark,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-            ),
-            child: Text(tab.label),
-          ),
-        ],
       ),
     );
   }

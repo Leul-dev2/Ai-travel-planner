@@ -11,6 +11,9 @@ import '../../../../core/utils/logger.dart';
 import '../../../ai_chat/data/ai_fallback_chain.dart';
 import '../../domain/entities/trip_entity.dart';
 import '../../domain/repositories/trip_repository.dart';
+import '../../../../core/services/places_service.dart';
+import '../../../weather/data/weather_api_service.dart';
+import '../../../weather/domain/entities/weather_entity.dart' as w_entity;
 import '../datasources/trip_remote_datasource.dart';
 import '../models/trip_model.dart';
 
@@ -109,8 +112,19 @@ class TripRepositoryImpl implements TripRepository {
   Future<Either<Failure, List<ItineraryDayEntity>>> generateItinerary(
       TripFormData formData) async {
     try {
+      // Fetch Weather Context
+      w_entity.WeatherForecast? forecast;
+      try {
+        final weatherService = const WeatherApiService();
+        if (weatherService.isConfigured) {
+          forecast = await weatherService.fetchCurrent(city: formData.city);
+        }
+      } catch (e) {
+        AppLogger.warning('Weather fetch failed: $e');
+      }
+
       // Build the AI prompt
-      final prompt = _buildItineraryPrompt(formData);
+      final prompt = _buildItineraryPrompt(formData, forecast);
       final request = AIRequest(
         prompt: prompt,
         context: formData.toJson(),
@@ -122,13 +136,50 @@ class TripRepositoryImpl implements TripRepository {
       final response = await _aiFallbackChain.execute(request);
 
       // Parse the AI response into structured itinerary days
-      final days = _parseItineraryResponse(response.content, formData.duration);
+      List<ItineraryDayEntity> days = _parseItineraryResponse(response.content, formData.duration);
 
       AppLogger.info(
         'Itinerary generated via ${response.provider} '
         '(${response.latency?.inMilliseconds ?? 0}ms, '
-        '${response.tokensUsed ?? 0} tokens)',
+        '${response.tokensUsed ?? 0} tokens). Enhancing with real data...',
       );
+
+      // Fetch Real Images and Exact Coordinates via Google Places API
+      final placesService = PlacesService();
+      
+      for (int i = 0; i < days.length; i++) {
+        final day = days[i];
+        List<ActivityEntity> enhancedActivities = [];
+        
+        // Execute concurrently for speed
+        final futures = day.activities.map((a) async {
+           final details = await placesService.getPlaceDetails('${a.name}, ${formData.city}, ${formData.country}');
+           if (details != null) {
+              return a.copyWith(
+                 lat: details['lat'],
+                 lng: details['lng'],
+                 imageUrl: details['photoUrl'] ?? a.imageUrl,
+              );
+           }
+           return a;
+        });
+
+        enhancedActivities = await Future.wait(futures);
+        
+        days[i] = ItineraryDayEntity(
+          dayNumber: day.dayNumber,
+          title: day.title,
+          imageUrl: enhancedActivities.firstWhere((act) => act.imageUrl != null, orElse: () => day.activities.first).imageUrl,
+          activities: enhancedActivities,
+          weather: i == 0 && forecast != null
+              ? WeatherEntity(
+                  temp: forecast.temp,
+                  condition: forecast.condition,
+                  icon: forecast.icon,
+                )
+              : null,
+        );
+      }
 
       return Right(days);
     } on AIException catch (e) {
@@ -161,6 +212,7 @@ class TripRepositoryImpl implements TripRepository {
                           'category': a.category,
                           'estimatedCost': a.estimatedCost,
                           'notes': a.notes,
+                          'imageUrl': a.imageUrl,
                         })
                     .toList(),
               ))
@@ -231,7 +283,17 @@ class TripRepositoryImpl implements TripRepository {
 
   // ── Private: Build AI Prompt ──
 
-  String _buildItineraryPrompt(TripFormData formData) {
+  String _buildItineraryPrompt(TripFormData formData, w_entity.WeatherForecast? weather) {
+    String weatherContext = '';
+    if (weather != null) {
+      weatherContext = '''
+Current Weather in ${formData.city}:
+- Temperature: ${weather.tempDisplay()}
+- Condition: ${weather.condition} (${weather.description})
+Please tailor the recommendations based on this weather. If it's rainy or too hot, recommend indoor activities.
+''';
+    }
+
     return '''
 You are an expert travel planner. Create a detailed ${formData.duration}-day itinerary for ${formData.city}, ${formData.country}.
 
@@ -242,6 +304,7 @@ Trip Details:
 - Interests: ${formData.interests.join(', ')}
 - Transport: ${formData.transportPreference ?? 'flexible'}
 
+$weatherContext
 For each day, provide 4-6 activities with:
 - Activity name
 - Time slot (e.g., "09:00")
@@ -257,7 +320,7 @@ Format as structured JSON array:
     "title": "Day Title",
     "activities": [
       {
-        "name": "Activity Name",
+        "name": "Exact Place Name (e.g., Eiffel Tower)",
         "time": "09:00",
         "duration": 120,
         "category": "attraction",
@@ -267,6 +330,11 @@ Format as structured JSON array:
     ]
   }
 ]
+
+CRITICAL ROUTING INSTRUCTIONS:
+1. Group activities logically by geographic proximity (shortest-path). Do NOT make the user cross the city multiple times in one day. 
+2. Start the day near their likely accommodation/central area and move outward sequentially.
+3. The "name" field MUST be the official, exact name of the venue or place so it can be successfully searched on Google Maps.
 
 Stay within the total budget of ${formData.budgetAmount} ${formData.budgetCurrency}.
 Include local restaurants, cultural experiences, and practical tips.

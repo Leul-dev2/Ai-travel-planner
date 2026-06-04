@@ -153,6 +153,7 @@ class ActivityEntity extends Equatable {
   final String category; // hotel, restaurant, attraction, transport
   final double? estimatedCost;
   final String? notes;
+  final String? imageUrl;
 
   const ActivityEntity({
     required this.name,
@@ -164,7 +165,34 @@ class ActivityEntity extends Equatable {
     this.category = 'attraction',
     this.estimatedCost,
     this.notes,
+    this.imageUrl,
   });
+
+  ActivityEntity copyWith({
+    String? name,
+    String? description,
+    String? time,
+    int? durationMinutes,
+    double? lat,
+    double? lng,
+    String? category,
+    double? estimatedCost,
+    String? notes,
+    String? imageUrl,
+  }) {
+    return ActivityEntity(
+      name: name ?? this.name,
+      description: description ?? this.description,
+      time: time ?? this.time,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      category: category ?? this.category,
+      estimatedCost: estimatedCost ?? this.estimatedCost,
+      notes: notes ?? this.notes,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
 
   @override
   List<Object?> get props => [name, lat, lng, category];

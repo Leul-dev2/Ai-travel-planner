@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../../core/widgets/utils/keep_alive_wrapper.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/trip_entity.dart';
 import '../providers/trip_provider.dart';
@@ -16,6 +17,7 @@ import '../widgets/step_1_destination.dart';
 import '../widgets/step_2_details.dart';
 import '../widgets/step_3_interests.dart';
 import '../widgets/step_4_budget.dart';
+import '../../../subscriptions/presentation/providers/entitlement_provider.dart';
 
 class PlanScreen extends ConsumerStatefulWidget {
   const PlanScreen({super.key});
@@ -128,6 +130,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen>
     if (!_validateStep1()) return;
 
     final formData = ref.read(tripFormProvider);
+    final entitlement = ref.read(entitlementProvider).value;
+
+    // Feature Gate: Free users can only generate up to 3 days
+    if (entitlement != null && !entitlement.isProOrHigher && formData.duration > 3) {
+      context.push(RouteNames.paywall);
+      _showError('Free plan is limited to 3-day trips. Upgrade to Pro!');
+      return;
+    }
+
     final navigator = Navigator.of(context);
     final router = GoRouter.of(context);
 
@@ -229,6 +240,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen>
   @override
   Widget build(BuildContext context) {
     final currentStep = ref.watch(wizardStepProvider);
+    // Keep the trip form provider alive for the duration of the PlanScreen
+    ref.watch(tripFormProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -360,27 +373,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen>
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding:
-                        const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Step1Destination(key: _step1Key),
-                  ),
-                  const SingleChildScrollView(
-                    physics: ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Step2Details(),
-                  ),
-                  const SingleChildScrollView(
-                    physics: ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Step3Interests(),
-                  ),
-                  const SingleChildScrollView(
-                    physics: ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: Step4Budget(),
-                  ),
+                  _buildCinematicStep(Step1Destination(key: _step1Key)),
+                  KeepAliveWrapper(child: _buildCinematicStep(const Step2Details())),
+                  KeepAliveWrapper(child: _buildCinematicStep(const Step3Interests())),
+                  KeepAliveWrapper(child: _buildCinematicStep(const Step4Budget())),
                 ],
               ),
             ),
@@ -406,6 +402,28 @@ class _PlanScreenState extends ConsumerState<PlanScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCinematicStep(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -78,7 +78,7 @@ class AppConfig {
   // ── Payments ──
   static String get stripePublishableKey =>
       dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
-  static String get chapaApiKey => dotenv.env['CHAPA_API_KEY'] ?? '';
+  static String get chapaApiKey => dotenv.env['CHAPUBK_TEST'] ?? '';
 
   // ── Weather ──
   static String get openWeatherApiKey =>

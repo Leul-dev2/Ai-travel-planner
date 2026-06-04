@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../providers/trip_provider.dart';
@@ -13,12 +16,14 @@ class Step1Destination extends ConsumerStatefulWidget {
   ConsumerState<Step1Destination> createState() => Step1DestinationState();
 }
 
-// Made public class to ensure global cross-file visibility for GlobalKey scoping
-class Step1DestinationState extends ConsumerState<Step1Destination> {
+class Step1DestinationState extends ConsumerState<Step1Destination> with AutomaticKeepAliveClientMixin {
   final _countryCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   DateTime? _departureDate;
   DateTime? _returnDate;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -89,30 +94,75 @@ class Step1DestinationState extends ConsumerState<Step1Destination> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    // Listen for changes from the Interactive Map
+    ref.listen(tripFormProvider, (previous, next) {
+      if (next.country != _countryCtrl.text) {
+        _countryCtrl.text = next.country;
+      }
+      if (next.city != _cityCtrl.text) {
+        _cityCtrl.text = next.city;
+      }
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ScreenHeader(
-          line1: 'WHERE',
-          line2: 'TO?',
-          subtitle: 'Step 1: Destination and Dates',
+        Text(
+          'Where do you want to go?',
+          style: AppTypography.displaySmall.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Pick a destination and your travel dates.',
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textMutedDark),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
         AppTextField(
           label: 'Country',
           hint: 'e.g., Japan',
           controller: _countryCtrl,
-          prefixIcon: const Icon(Icons
-              .public), // IconData wrapped within standard Icon widget elements
+          prefixIcon: const Icon(Icons.public),
         ),
         const SizedBox(height: 16),
         AppTextField(
           label: 'City',
           hint: 'e.g., Tokyo',
           controller: _cityCtrl,
-          prefixIcon: const Icon(Icons
-              .location_city), // IconData wrapped within standard Icon widget elements
+          prefixIcon: const Icon(Icons.location_city),
         ),
+        
+        const SizedBox(height: 16),
+        
+        // Interactive Map Button
+        Center(
+          child: TextButton.icon(
+            onPressed: () => context.push(RouteNames.map),
+            icon: const Icon(Icons.map_rounded, color: AppColors.secondary),
+            label: Text(
+              'Or pick from Interactive Map',
+              style: AppTypography.labelMedium.copyWith(
+                color: AppColors.secondary,
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.secondary.withValues(alpha: 0.5),
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              backgroundColor: AppColors.secondary.withValues(alpha: 0.1),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              ),
+            ),
+          ),
+        ),
+
         const SizedBox(height: 32),
         const SectionLabel('Travel Dates'),
         const SizedBox(height: 12),

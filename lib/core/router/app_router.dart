@@ -84,8 +84,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, s) => _fadeTransition(s, const MapScreen()),
       ),
       GoRoute(
-        path: RouteNames.planTrip,
-        pageBuilder: (_, s) => _slideUp(s, const PlanScreen()),
+        path: RouteNames.aiChat,
+        pageBuilder: (_, s) => _slideUp(s, const ChatScreen()),
       ),
       GoRoute(
         path: '/itinerary/:tripId',
@@ -121,8 +121,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, s) => _noTransition(s, const DashboardScreen()),
           ),
           GoRoute(
-            path: RouteNames.aiChat,
-            pageBuilder: (_, s) => _noTransition(s, const ChatScreen()),
+            path: RouteNames.planTrip,
+            pageBuilder: (_, s) => _noTransition(s, const PlanScreen()),
           ),
           GoRoute(
             path: RouteNames.profile,

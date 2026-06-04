@@ -1,5 +1,5 @@
 // ─── Primary Button ─────────────────────────────────────────────────
-// Main CTA button with loading state, icon support, and variants.
+// Apple/Airbnb inspired high-end CTA button.
 
 import 'package:flutter/material.dart';
 
@@ -31,12 +31,14 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     final Widget buttonChild = isLoading
         ? const SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
-              strokeWidth: 2,
+              strokeWidth: 2.5,
               color: Colors.white,
             ),
           )
@@ -45,21 +47,24 @@ class PrimaryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                label.toUpperCase(),
+                label,
                 style: AppTypography.button.copyWith(
                   color: variant == ButtonVariant.filled
                       ? Colors.white
-                      : AppColors.primary,
+                      : (isDark ? Colors.white : Colors.black),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  letterSpacing: -0.2, // Apple-style tight tracking
                 ),
               ),
               if (icon != null) ...[
                 const SizedBox(width: 8),
                 Icon(
                   icon,
-                  size: 16,
+                  size: 18,
                   color: variant == ButtonVariant.filled
                       ? Colors.white
-                      : AppColors.primary,
+                      : (isDark ? Colors.white : Colors.black),
                 ),
               ],
             ],
@@ -72,45 +77,50 @@ class PrimaryButton extends StatelessWidget {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+          shadowColor: Colors.transparent,
           padding: EdgeInsets.symmetric(
-            vertical: height != null ? 0 : 18,
+            vertical: height != null ? 0 : 16,
             horizontal: 24,
           ),
           minimumSize: Size(fullWidth ? double.infinity : 0, height ?? 56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
           ),
         );
         break;
       case ButtonVariant.outlined:
         style = ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: AppColors.primary,
+          foregroundColor: isDark ? Colors.white : Colors.black,
           elevation: 0,
+          shadowColor: Colors.transparent,
           padding: EdgeInsets.symmetric(
-            vertical: height != null ? 0 : 18,
+            vertical: height != null ? 0 : 16,
             horizontal: 24,
           ),
           minimumSize: Size(fullWidth ? double.infinity : 0, height ?? 56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-            side: const BorderSide(color: AppColors.primary),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+            side: BorderSide(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              width: 1.5,
+            ),
           ),
         );
         break;
       case ButtonVariant.ghost:
         style = ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: AppColors.primary,
+          foregroundColor: isDark ? Colors.white : Colors.black,
           elevation: 0,
+          shadowColor: Colors.transparent,
           padding: EdgeInsets.symmetric(
-            vertical: height != null ? 0 : 18,
+            vertical: height != null ? 0 : 16,
             horizontal: 24,
           ),
           minimumSize: Size(fullWidth ? double.infinity : 0, height ?? 56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
           ),
         );
         break;

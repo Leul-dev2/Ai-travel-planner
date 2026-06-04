@@ -1,5 +1,5 @@
 // ─── Splash Screen ───────────────────────────────────────────────────
-// Branded animated splash — checks auth & routes to onboarding or home.
+// Minimalist, premium brand animation — checks auth & routes to onboarding or home.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -19,23 +19,16 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _glowCtrl;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _glowCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
     _initApp();
   }
 
   Future<void> _initApp() async {
     // Brief delay for brand impression
-    await Future.delayed(const Duration(milliseconds: 2000));
+    await Future.delayed(const Duration(milliseconds: 2500));
 
     if (!mounted) return;
 
@@ -47,7 +40,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (isLoggedIn) {
         context.go(RouteNames.home);
       } else {
-        // Ensure Hive box is open (web can lose it between navigations)
+        // Ensure Hive box is open
         if (!Hive.isBoxOpen('app_prefs')) {
           await Hive.openBox('app_prefs');
         }
@@ -66,171 +59,70 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   @override
-  void dispose() {
-    _glowCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
-      body: Stack(
-        children: [
-          // ── Radial glow background ──
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _glowCtrl,
-              builder: (_, __) => Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.center,
-                    radius: 0.8,
-                    colors: [
-                      AppColors.primary.withValues(
-                          alpha: 0.12 + (_glowCtrl.value * 0.06)),
-                      AppColors.bgDark,
-                    ],
-                  ),
-                ),
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Apple-style minimalist logo reveal
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white : Colors.black,
+                borderRadius: BorderRadius.circular(32),
               ),
-            ),
-          ),
-
-          // ── Center logo ──
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo icon
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.auroraGradient,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 32,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.flight_takeoff_rounded,
-                    color: Colors.white,
-                    size: 48,
-                  ),
+              child: Icon(
+                Icons.flight_takeoff_rounded,
+                color: isDark ? Colors.black : Colors.white,
+                size: 48,
+              ),
+            )
+                .animate()
+                .scale(
+                  begin: const Offset(0.8, 0.8),
+                  end: const Offset(1, 1),
+                  duration: 1000.ms,
+                  curve: Curves.easeOutCubic,
                 )
-                    .animate()
-                    .scale(
-                      begin: const Offset(0, 0),
-                      end: const Offset(1, 1),
-                      duration: 800.ms,
-                      curve: Curves.elasticOut,
-                    )
-                    .fadeIn(duration: 400.ms),
+                .fadeIn(duration: 800.ms),
 
-                const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-                // App name
-                Text(
-                  'Wanderlust',
-                  style: AppTypography.displayMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                )
-                    .animate(delay: 300.ms)
-                    .fadeIn(duration: 500.ms)
-                    .slideY(begin: 0.3, end: 0, duration: 500.ms),
+            // Typography
+            Text(
+              'WANDERLUST',
+              style: AppTypography.displayMedium.copyWith(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 8,
+                fontSize: 24,
+              ),
+            )
+                .animate(delay: 500.ms)
+                .fadeIn(duration: 800.ms)
+                .slideY(begin: 0.2, end: 0, duration: 800.ms, curve: Curves.easeOutCubic),
 
-                Text(
-                  'AI Travel Planner',
-                  style: AppTypography.labelLarge.copyWith(
-                    color: AppColors.textMutedDark,
-                    letterSpacing: 2.5,
-                  ),
-                )
-                    .animate(delay: 450.ms)
-                    .fadeIn(duration: 500.ms)
-                    .slideY(begin: 0.3, end: 0, duration: 500.ms),
-              ],
-            ),
-          ),
+            const SizedBox(height: 8),
 
-          // ── Loading dots ──
-          Positioned(
-            bottom: 64,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _LoadingDots(),
-            ).animate(delay: 800.ms).fadeIn(duration: 400.ms),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadingDots extends StatefulWidget {
-  @override
-  State<_LoadingDots> createState() => _LoadingDotsState();
-}
-
-class _LoadingDotsState extends State<_LoadingDots>
-    with TickerProviderStateMixin {
-  late List<AnimationController> _ctrls;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrls = List.generate(
-      3,
-      (i) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 600),
-      )..repeat(
-          reverse: true,
-          period: Duration(milliseconds: 600 + (i * 200)),
+            Text(
+              'INTELLIGENT TRAVEL',
+              style: AppTypography.labelMedium.copyWith(
+                color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
+                letterSpacing: 4,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+                .animate(delay: 700.ms)
+                .fadeIn(duration: 800.ms)
+                .slideY(begin: 0.2, end: 0, duration: 800.ms, curve: Curves.easeOutCubic),
+          ],
         ),
-    );
-    for (int i = 0; i < _ctrls.length; i++) {
-      Future.delayed(Duration(milliseconds: i * 200), () {
-        if (mounted) _ctrls[i].repeat(reverse: true);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final c in _ctrls) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (i) {
-        return AnimatedBuilder(
-          animation: _ctrls[i],
-          builder: (_, __) => Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: 6,
-            height: 6 + (_ctrls[i].value * 4),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(
-                  alpha: 0.4 + (_ctrls[i].value * 0.6)),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-        );
-      }),
+      ),
     );
   }
 }

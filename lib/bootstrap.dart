@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
@@ -43,12 +44,31 @@ Future<void> bootstrap() async {
   await Hive.openBox('app_prefs');
   AppLogger.info('Hive initialized');
 
+  // ── Initialize Stripe (Mobile Only) ──
+  // We guard this with !kIsWeb because flutter_stripe uses dart:io Platform checks
+  // which crash on the web.
+  if (!kIsWeb && AppConfig.stripePublishableKey.isNotEmpty) {
+    try {
+      Stripe.publishableKey = AppConfig.stripePublishableKey;
+      await Stripe.instance.applySettings();
+      AppLogger.info('Stripe initialized for native platform');
+    } catch (e) {
+      AppLogger.warning('Stripe initialization failed: $e');
+    }
+  } else if (kIsWeb) {
+    AppLogger.info('Stripe native initialization skipped (Web Environment)');
+    // Note: If you need Stripe on Web, use the 'flutter_stripe_web' package
+    // and initialize it specifically here.
+  }
+
   // ── System UI ──
-  SystemChrome.setSystemUIOverlayStyle(AppTheme.darkSystemUI);
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  if (!kIsWeb) {
+    SystemChrome.setSystemUIOverlayStyle(AppTheme.darkSystemUI);
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   // ── Production logging ──
   if (AppConfig.isProd) {

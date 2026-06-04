@@ -1,7 +1,9 @@
 // ─── Discover Screen ─────────────────────────────────────────────────
-// Destination discovery with categories, search, and infinite scroll grid.
+// Premium destination discovery with masonry grid, hero carousels, and glassmorphism.
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -42,6 +44,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolled = false;
 
   static const _categories = [
     'All', 'Beach', 'Mountain', 'City', 'Culture', 'Adventure', 'Nature', 'Food'
@@ -122,140 +126,198 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 20 && !_isScrolled) {
+        setState(() => _isScrolled = true);
+      } else if (_scrollController.offset <= 20 && _isScrolled) {
+        setState(() => _isScrolled = false);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
+    final trending = _allDestinations.take(4).toList();
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        bottom: false,
+        child: Stack(
           children: [
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Discover',
-                      style: AppTypography.headlineMedium.copyWith(
-                          color: AppColors.textPrimaryDark,
-                          fontWeight: FontWeight.w800))
-                      .animate().fadeIn(duration: 400.ms),
-                  Text('Find your next adventure',
-                      style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textMutedDark))
-                      .animate(delay: 100.ms).fadeIn(duration: 400.ms),
-                ],
-              ),
-            ),
-
-            // ── Search ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceAltDark,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                  border: Border.all(color: AppColors.borderDark),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 14),
-                    const Icon(Icons.search_rounded,
-                        color: AppColors.textMutedDark, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textPrimaryDark),
-                        decoration: InputDecoration(
-                          hintText: 'Search destinations...',
-                          hintStyle: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.textMutedDark),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                          isDense: true,
-                        ),
-                        onChanged: (v) => setState(() => _searchQuery = v),
+            // ── Main Content ──
+            CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 70), // Space for glass app bar
+                      
+                      // Hero title
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text('Where to\nnext?',
+                            style: AppTypography.displayMedium.copyWith(
+                                color: AppColors.textPrimaryDark,
+                                fontWeight: FontWeight.w900,
+                                height: 1.1))
+                            .animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0),
                       ),
-                    ),
-                    if (_searchQuery.isNotEmpty)
-                      GestureDetector(
-                        onTap: () {
-                          _searchCtrl.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.only(right: 12),
-                          child: Icon(Icons.close_rounded,
-                              color: AppColors.textMutedDark, size: 18),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ).animate(delay: 150.ms).fadeIn(duration: 400.ms),
+                      
+                      const SizedBox(height: 24),
 
-            // ── Category Chips ──
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 38,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _categories.length,
-                itemBuilder: (_, i) {
-                  final cat = _categories[i];
-                  final isSelected = _selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedCategory = cat),
-                      child: AnimatedContainer(
-                        duration: AppTheme.durationMedium,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.surfaceAltDark,
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusFull),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.borderDark,
+                      // Horizontal Trending Carousel
+                      if (_searchQuery.isEmpty && _selectedCategory == 'All') ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Trending Now',
+                                  style: AppTypography.titleMedium.copyWith(
+                                      color: AppColors.textPrimaryDark,
+                                      fontWeight: FontWeight.w800)),
+                              Text('See all',
+                                  style: AppTypography.labelMedium.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ).animate(delay: 100.ms).fadeIn(),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 280,
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: trending.length,
+                            itemBuilder: (context, index) {
+                              final d = trending[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: DestinationCard(
+                                  name: d.name,
+                                  country: d.country,
+                                  imageUrl: d.imageUrl,
+                                  rating: d.rating,
+                                  priceRange: d.priceRange,
+                                  tag: d.tag,
+                                  tagColor: d.tagColor,
+                                  width: 200,
+                                  height: 280,
+                                ),
+                              ).animate(delay: Duration(milliseconds: 150 + index * 100)).fadeIn().slideX(begin: 0.1);
+                            },
                           ),
                         ),
-                        child: Text(
-                          cat,
-                          style: AppTypography.labelMedium.copyWith(
-                            color: isSelected
-                                ? Colors.white
-                                : AppColors.textSecondaryDark,
+                        const SizedBox(height: 32),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ── Sticky Category Header ──
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _CategoryHeaderDelegate(
+                    child: Container(
+                      color: AppColors.bgDark,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_searchQuery.isNotEmpty || _selectedCategory != 'All')
+                             Padding(
+                               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                               child: Text('Explore',
+                                  style: AppTypography.titleMedium.copyWith(
+                                      color: AppColors.textPrimaryDark,
+                                      fontWeight: FontWeight.w800)),
+                             ),
+                          SizedBox(
+                            height: 40,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: _categories.length,
+                              itemBuilder: (_, i) {
+                                final cat = _categories[i];
+                                final isSelected = _selectedCategory == cat;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _selectedCategory = cat);
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: AppTheme.durationMedium,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 18, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: isSelected
+                                            ? AppColors.auroraGradient
+                                            : null,
+                                        color: isSelected
+                                            ? null
+                                            : AppColors.surfaceAltDark,
+                                        borderRadius:
+                                            BorderRadius.circular(AppTheme.radiusFull),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Colors.transparent
+                                              : AppColors.borderDark,
+                                        ),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Text(
+                                        cat,
+                                        style: AppTypography.labelMedium.copyWith(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : AppColors.textSecondaryDark,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                    height: (_searchQuery.isNotEmpty || _selectedCategory != 'All') ? 80 : 64,
+                  ),
+                ),
 
-            const SizedBox(height: 16),
-
-            // ── Grid ──
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
+                // ── Masonry Grid ──
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -267,39 +329,162 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   color: AppColors.textSecondaryDark)),
                         ],
                       ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.78,
+                    ).animate().fadeIn(),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 100), // padding for bottom nav
+                    sliver: SliverToBoxAdapter(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: _buildMasonryColumn(filtered, 0),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              children: _buildMasonryColumn(filtered, 1),
+                            ),
+                          ),
+                        ],
                       ),
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) {
-                        final d = filtered[i];
-                        return DestinationCard(
-                          name: d.name,
-                          country: d.country,
-                          imageUrl: d.imageUrl,
-                          rating: d.rating,
-                          priceRange: d.priceRange,
-                          tag: d.tag,
-                          tagColor: d.tagColor,
-                          height: double.infinity,
-                        )
-                            .animate(delay: Duration(milliseconds: i * 60))
-                            .fadeIn(duration: 350.ms)
-                            .scale(begin: const Offset(0.95, 0.95));
-                      },
                     ),
+                  ),
+              ],
+            ),
+
+            // ── Floating Glass App Bar / Search ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClipRRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _isScrolled
+                          ? AppColors.surfaceDark.withValues(alpha: 0.8)
+                          : Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _isScrolled
+                              ? AppColors.borderDark.withValues(alpha: 0.5)
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAltDark.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 16),
+                          const Icon(Icons.search_rounded,
+                              color: AppColors.textMutedDark, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.textPrimaryDark),
+                              decoration: InputDecoration(
+                                hintText: 'Search destinations...',
+                                hintStyle: AppTypography.bodyMedium.copyWith(
+                                    color: AppColors.textMutedDark),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                                isDense: true,
+                              ),
+                              onChanged: (v) => setState(() => _searchQuery = v),
+                            ),
+                          ),
+                          if (_searchQuery.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Icon(Icons.close_rounded,
+                                    color: AppColors.textMutedDark, size: 18),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ).animate().fadeIn(duration: 400.ms),
             ),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildMasonryColumn(List<DestinationData> items, int columnIndex) {
+    final List<Widget> columnItems = [];
+    for (int i = 0; i < items.length; i++) {
+      if (i % 2 == columnIndex) {
+        // Create an alternating height effect for masonry
+        final double height = (i % 3 == 0) ? 280 : 220;
+        final d = items[i];
+        
+        columnItems.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: DestinationCard(
+              name: d.name,
+              country: d.country,
+              imageUrl: d.imageUrl,
+              rating: d.rating,
+              priceRange: d.priceRange,
+              tag: d.tag,
+              tagColor: d.tagColor,
+              height: height,
+            ).animate(delay: Duration(milliseconds: i * 50)).fadeIn().scale(begin: const Offset(0.95, 0.95)),
+          ),
+        );
+      }
+    }
+    // Add top padding to the second column to create the masonry staggered look
+    if (columnIndex == 1 && columnItems.isNotEmpty) {
+      columnItems.insert(0, const SizedBox(height: 32));
+    }
+    return columnItems;
+  }
+}
+
+class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  _CategoryHeaderDelegate({required this.child, required this.height});
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }

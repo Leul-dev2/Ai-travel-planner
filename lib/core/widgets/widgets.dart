@@ -8,9 +8,12 @@ export 'animations/staggered_list.dart';
 export 'buttons/icon_action_button.dart';
 export 'buttons/primary_button.dart';
 export 'buttons/social_button.dart';
-export 'cards/destination_card.dart';
 // Cards
+export 'cards/ai_card.dart';
+export 'cards/destination_card.dart';
+export 'cards/flight_card.dart';
 export 'cards/glass_card.dart';
+export 'cards/hotel_card.dart';
 export 'cards/stat_card.dart';
 export 'cards/trip_card.dart';
 // Dialogs
@@ -21,6 +24,7 @@ export 'empty_states/empty_state_widget.dart';
 export 'error_states/error_state_widget.dart';
 // Inputs
 export 'inputs/app_dropdown.dart';
+export 'inputs/app_search_bar.dart';
 export 'inputs/app_text_field.dart';
 // Layouts
 export 'layouts/accent_bar.dart';

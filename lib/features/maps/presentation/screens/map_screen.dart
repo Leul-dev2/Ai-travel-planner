@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/constants/route_names.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../trip_planner/presentation/providers/trip_provider.dart';
 import '../../data/places_service.dart';
 import '../providers/map_provider.dart';
 
@@ -46,7 +49,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
-    // Catch web geolocation type cast mismatches gracefully on startup
     Future.microtask(() => _safelyFetchInitialPosition());
   }
 
@@ -61,18 +63,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _safelyFetchInitialPosition() async {
     try {
       await ref.read(mapNotifierProvider.notifier).determinePosition();
-
+      
       if (!mounted) return;
       final currentState = ref.read(mapNotifierProvider);
       if (_controller != null) {
         _controller!.animateCamera(
-          CameraUpdate.newLatLngZoom(currentState.center, 14.0),
+          CameraUpdate.newLatLngZoom(normalizeMapCenter(currentState.center), 14.0),
         );
       }
     } catch (e) {
-      debugPrint(
-          'Silently handled geolocator initialization mismatch on Web: $e');
-      // The application will gracefully preserve kDefaultMapCenter center rather than crashing
+      debugPrint('Silently handled geolocator initialization mismatch on Web: $e');
     }
   }
 
@@ -162,14 +162,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
           child: Column(
             children: [
-              // Drag handle
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(top: 12),
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceAltDark,
+                    color: AppColors.textMutedDark.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -179,10 +178,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   controller: controller,
                   padding: const EdgeInsets.all(24),
                   children: [
-                    // Photo
                     if (details.photos != null && details.photos!.isNotEmpty)
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusXXL),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusXXL),
                         child: Image.network(
                           details.photos!.first,
                           height: 160,
@@ -192,16 +191,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ),
                     const SizedBox(height: 16),
-                    // Name
                     Text(
                       details.name,
-                      style: AppTypography.titleLarge.copyWith(
+                      style: AppTypography.displaySmall.copyWith(
                         color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    // Address
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         const Icon(Icons.location_on_outlined,
@@ -220,15 +218,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          ...List.generate(
-                              5,
-                              (i) => Icon(
-                                    i < details.rating!.round()
-                                        ? Icons.star_rounded
-                                        : Icons.star_outline_rounded,
-                                    color: Colors.amber,
-                                    size: 18,
-                                  )),
+                          ...List.generate(5, (i) => Icon(
+                                i < details.rating!.round()
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                color: Colors.amber,
+                                size: 18,
+                              )),
                           const SizedBox(width: 6),
                           Text(
                             details.rating!.toStringAsFixed(1),
@@ -238,16 +234,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
                     PrimaryButton(
                       label: 'Add to Trip',
                       icon: Icons.add_location_alt_rounded,
                       onTap: () {
-                        Navigator.pop(context);
+                        // Extract basic location info from formattedAddress (e.g., "Kyoto, Japan")
+                        final parts = details.formattedAddress.split(',');
+                        final String country = parts.last.trim();
+                        String city = details.name;
+                        
+                        if (parts.length > 1 && parts[parts.length - 2].trim().isNotEmpty) {
+                           // If address has multiple parts, use the second to last as city (heuristic)
+                           // But keep details.name if it's more specific, or just use details.name directly.
+                           // Actually, details.name is usually the best for City if it's a city search.
+                           if (city.toLowerCase().contains('point of interest')) {
+                             city = parts[parts.length - 2].trim();
+                           }
+                        }
+                        
+                        ref.read(tripFormProvider.notifier).setCity(city);
+                        ref.read(tripFormProvider.notifier).setCountry(country);
+
+                        // Jump straight to the planner wizard
+                        context.go(RouteNames.planTrip);
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content:
-                                Text('📍 ${details.name} added to your trip!'),
+                            content: Text(
+                                '📍 $city, $country added to your trip!'),
                             backgroundColor: AppColors.success,
                           ),
                         );
@@ -314,18 +329,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               backgroundColor: AppColors.surfaceDark,
               elevation: 8,
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 try {
                   await ref
                       .read(mapNotifierProvider.notifier)
                       .determinePosition();
+                  
+                  if (!mounted) return;
                   final s = ref.read(mapNotifierProvider);
                   _controller?.animateCamera(CameraUpdate.newLatLngZoom(
                       normalizeMapCenter(s.center), 15.0));
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  if (!mounted) return;
+                  messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                          'Location features temporarily unavailable on web browser: $e'),
+                      content: Text('Location features temporarily unavailable on web browser: $e'),
                       backgroundColor: AppColors.error,
                     ),
                   );
@@ -343,7 +361,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Row: back + search field
                   Row(
                     children: [
                       _MapIconBtn(
@@ -360,11 +377,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 BorderRadius.circular(AppTheme.radiusFull),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
                               ),
                             ],
+                            border: Border.all(color: AppColors.glassBorder.withValues(alpha: 0.3)),
                           ),
                           child: TextField(
                             controller: _searchController,
@@ -408,11 +426,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       margin: const EdgeInsets.only(top: 8, left: 58),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceDark,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusXXL),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusXXL),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 16),
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 24,
+                              offset: const Offset(0, 12)),
                         ],
                         border: Border.all(color: AppColors.glassBorder),
                       ),
@@ -426,36 +446,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               padding: EdgeInsets.zero,
                               itemCount: _suggestions.length,
                               separatorBuilder: (_, __) => Divider(
-                                  color: Colors.white.withValues(alpha: 0.05),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.05),
                                   height: 1),
                               itemBuilder: (_, i) {
                                 final s = _suggestions[i];
-                                return ListTile(
-                                  leading: Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
+                                return Container(
+                                  color: Colors.transparent,
+                                  child: ListTile(
+                                    leading: Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.location_on,
+                                          color: AppColors.primary, size: 16),
                                     ),
-                                    child: const Icon(Icons.location_on,
-                                        color: AppColors.primary, size: 16),
+                                    title: Text(s.mainText,
+                                        style: AppTypography.bodyMedium.copyWith(
+                                            color: AppColors.textPrimaryDark)),
+                                    subtitle: Text(s.secondaryText,
+                                        style: AppTypography.labelSmall.copyWith(
+                                            color: AppColors.textSecondaryDark)),
+                                    onTap: () => _onSuggestionSelected(s),
                                   ),
-                                  title: Text(s.mainText,
-                                      style: AppTypography.bodyMedium.copyWith(
-                                          color: AppColors.textPrimaryDark)),
-                                  subtitle: Text(s.secondaryText,
-                                      style: AppTypography.labelSmall.copyWith(
-                                          color: AppColors.textSecondaryDark)),
-                                  onTap: () => _onSuggestionSelected(s),
                                 );
                               },
                             ),
                     )
-                        .animate()
-                        .fadeIn(duration: 200.ms)
-                        .slideY(begin: -0.05, end: 0),
+                    .animate()
+                    .fadeIn(duration: 200.ms)
+                    .slideY(begin: -0.05, end: 0),
 
                   // Quick-jump chips
                   if (!_showSearchResults) ...[
@@ -471,23 +495,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 7),
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceDark
-                                    .withValues(alpha: 0.9),
+                                color: AppColors.surfaceDark.withValues(alpha: 0.9),
                                 borderRadius:
                                     BorderRadius.circular(AppTheme.radiusFull),
-                                border: Border.all(
-                                    color: AppColors.glassBorder),
+                                border:
+                                    Border.all(color: AppColors.glassBorder.withValues(alpha: 0.3)),
                                 boxShadow: [
                                   BoxShadow(
                                       color:
-                                          Colors.black.withValues(alpha: 0.2),
-                                      blurRadius: 8),
+                                          Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4)),
                                 ],
                               ),
                               child: Text(
                                 '${p.emoji} ${p.name}',
-                                style: AppTypography.labelMedium
-                                    .copyWith(color: AppColors.textPrimaryDark),
+                                style: AppTypography.labelMedium.copyWith(
+                                    color: AppColors.textPrimaryDark),
                               ),
                             ),
                           );

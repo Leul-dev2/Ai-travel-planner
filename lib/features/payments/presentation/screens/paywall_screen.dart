@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -18,6 +21,7 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   int _selectedPlan = 1; // Pro by default
+  bool _isLoading = false;
 
   static const _plans = [
     _Plan(
@@ -66,6 +70,98 @@ class _PaywallScreenState extends State<PaywallScreen> {
       locked: [],
     ),
   ];
+
+  Future<void> _handleCheckout(String planId) async {
+    setState(() => _isLoading = true);
+    
+    // We demonstrate both Chapa (Local) and Stripe (International)
+    // In a real app, this might be a user choice or region-based.
+    // For this example, let's show an action sheet to pick payment method.
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 20),
+            Text('Select Payment Method', style: AppTypography.titleMedium),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.credit_card, color: AppColors.primary),
+              title: const Text('Credit Card (Stripe)'),
+              onTap: () => Navigator.pop(context, 'stripe'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet, color: AppColors.secondary),
+              title: const Text('Local Payment (Chapa)'),
+              onTap: () => Navigator.pop(context, 'chapa'),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+
+    if (method == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      if (method == 'stripe') {
+        await _processStripeCheckout(planId);
+      } else if (method == 'chapa') {
+        await _processChapaCheckout(planId);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Checkout failed: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _processStripeCheckout(String planId) async {
+    final functions = FirebaseFunctions.instance;
+    final result = await functions.httpsCallable('createStripeCheckout').call({
+      'planId': planId,
+      'interval': 'month',
+    });
+
+    final data = result.data;
+    if (data['sessionId'] != null) {
+      final url = Uri.parse(data['url']);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch Stripe checkout');
+      }
+    }
+  }
+
+  Future<void> _processChapaCheckout(String planId) async {
+    final functions = FirebaseFunctions.instance;
+    final result = await functions.httpsCallable('createChapaCheckout').call({
+      'planId': planId,
+      'amount': planId == 'pro' ? 999 : 1999,
+      'currency': 'ETB',
+      'email': 'user@example.com',
+      'firstName': 'Traveler',
+      'lastName': 'AI',
+    });
+
+    final data = result.data;
+    if (data['checkoutUrl'] != null) {
+      final url = Uri.parse(data['checkoutUrl']);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch Chapa checkout');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -270,16 +366,16 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         width: double.infinity,
                         height: 58,
                         child: ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                    '${plan.name} plan — payment integration coming soon!'),
-                                backgroundColor: AppColors.surfaceElevatedDark,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  if (_selectedPlan == 0) {
+                                    context.pop();
+                                  } else {
+                                    final planId = _selectedPlan == 1 ? 'pro' : 'ultimate';
+                                    _handleCheckout(planId);
+                                  }
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: plan.color,
                             foregroundColor: Colors.white,
@@ -289,12 +385,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                   BorderRadius.circular(AppTheme.radiusFull),
                             ),
                           ),
-                          child: Text(
-                            _selectedPlan == 0
-                                ? 'Continue with Free'
-                                : 'Start 7-Day Free Trial',
-                            style: AppTypography.button,
-                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : Text(
+                                  _selectedPlan == 0
+                                      ? 'Continue with Free'
+                                      : 'Start 7-Day Free Trial',
+                                  style: AppTypography.button,
+                                ),
                         ),
                       ),
                       const SizedBox(height: 10),

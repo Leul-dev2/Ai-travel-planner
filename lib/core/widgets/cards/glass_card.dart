@@ -1,7 +1,6 @@
-// ─── Glass Card ─────────────────────────────────────────────────────
-// Premium glassmorphism-style container card used throughout the app.
+// ─── App Card ─────────────────────────────────────────────────────
+// Clean, Apple-style card component replacing GlassCard.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -13,7 +12,7 @@ class GlassCard extends StatefulWidget {
   final Color? color;
   final VoidCallback? onTap;
   final bool hasBorder;
-  final bool enableBlur;
+  final bool enableBlur; // Kept for API compatibility
 
   const GlassCard({
     super.key,
@@ -36,42 +35,40 @@ class _GlassCardState extends State<GlassCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderRadius =
-        BorderRadius.circular(widget.radius ?? AppTheme.radiusXXL);
+        BorderRadius.circular(widget.radius ?? AppTheme.radiusXL);
 
-    Widget cardContent = AnimatedScale(
-      scale: _pressed ? 0.97 : 1.0,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOut,
+    final cardContent = AnimatedScale(
+      scale: _pressed ? 0.98 : 1.0,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutQuart,
       child: Container(
         padding: widget.padding ?? const EdgeInsets.all(AppTheme.spacingLG),
         decoration: BoxDecoration(
-          color: widget.color ?? AppColors.surfaceDark,
+          color: widget.color ??
+              (isDark ? AppColors.surfaceAltDark : AppColors.surfaceLight),
           borderRadius: borderRadius,
           border: widget.hasBorder
-              ? Border.all(color: Colors.white.withValues(alpha: 0.07))
+              ? Border.all(
+                  color: isDark
+                      ? AppColors.borderDark
+                      : AppColors.borderSubtleLight,
+                  width: 1,
+                )
               : null,
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            if (!isDark) // Apple styling: shadows in light mode, borders in dark
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
           ],
         ),
         child: widget.child,
       ),
     );
-
-    if (widget.enableBlur) {
-      cardContent = ClipRRect(
-        borderRadius: borderRadius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: cardContent,
-        ),
-      );
-    }
 
     if (widget.onTap != null) {
       return GestureDetector(

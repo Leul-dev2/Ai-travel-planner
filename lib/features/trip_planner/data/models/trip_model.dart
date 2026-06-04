@@ -224,6 +224,7 @@ class ItineraryDayModel {
         category: a['category'] as String? ?? 'attraction',
         estimatedCost: (a['estimatedCost'] as num?)?.toDouble(),
         notes: a['notes'] as String?,
+        imageUrl: a['imageUrl'] as String?,
       )).toList(),
       weather: weather != null
           ? WeatherEntity(
